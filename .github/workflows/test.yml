@@ -24,13 +24,3 @@ jobs:
           inpit_file: __tests__/fixtures/measure_result.json
           nr_query_id: ${{ secrets.NEW_RELIC_QUERY_ID }}
           nr_account_id: ${{ secrets.NEW_RELIC_QUERY_ID }}
-
- inpit_file: # change this
-    required: true
-    description: 'input file in json format with wcs measure results'
-  nr_query_id: # change this
-    required: true
-    description: 'newrelic query id'
-  nr_account_id: # change this
-    required: true
-    description: 'newrelic account id'
