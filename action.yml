@@ -5,7 +5,7 @@ branding:
   icon: 'crosshair'  
   color: 'blue'
 inputs:
-  inpit_file: # change this
+  input_file: # change this
     required: true
     description: 'input file in json format with wcs measure results'
   output_file: # change this
