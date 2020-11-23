@@ -5,7 +5,7 @@ import {generateReport} from './report'
 async function run(): Promise<void> {
   try {
     const inputFile: string = core.getInput('inpit_file')
-    const outputFile: string = core.getInput('inpit_file')
+    const outputFile: string = core.getInput('output_file')
     const queryKey: string = core.getInput('nr_query_id')
     const accountId: string = core.getInput('nr_account_id')
 

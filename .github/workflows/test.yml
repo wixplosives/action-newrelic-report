@@ -22,5 +22,7 @@ jobs:
       - uses: ./
         with:
           inpit_file: __tests__/fixtures/measure_result.json
+          output_file: output.txt
           nr_query_id: ${{ secrets.NEW_RELIC_QUERY_ID }}
           nr_account_id: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
+      - run: cat output.txt

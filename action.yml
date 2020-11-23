@@ -8,12 +8,16 @@ inputs:
   inpit_file: # change this
     required: true
     description: 'input file in json format with wcs measure results'
+  output_file: # change this
+    required: true
+    description: 'output file name'
   nr_query_id: # change this
     required: true
     description: 'newrelic query id'
   nr_account_id: # change this
     required: true
     description: 'newrelic account id'
+    
 runs:
   using: 'node12'
   main: 'dist/index.js'
