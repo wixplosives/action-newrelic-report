@@ -93,7 +93,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.readDataFromJsonFile = void 0;
 const core = __importStar(__webpack_require__(186));
 const fs_1 = __importDefault(__webpack_require__(747));
 const report_1 = __webpack_require__(269);
@@ -101,12 +100,11 @@ function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const inputFile = core.getInput('inpit_file');
+            const outputFile = core.getInput('inpit_file');
             const queryKey = core.getInput('nr_query_id');
             const accountId = core.getInput('nr_account_id');
-            //const queryKey = 'NRIQ-nnXX46i5SjmqLp_oc7XhgqqZiKq97Jv_'
-            //const accountId = '23428'
-            //const inputFile = '/Users/alexshe/dev/newrelic-toolkit/packages/newrelic-cli/test/fixtures/measure_result.json'
             const mdReport = yield report_1.generateReport(inputFile, accountId, queryKey);
+            fs_1.default.writeFileSync(outputFile, mdReport);
             core.setOutput('data', mdReport);
         }
         catch (error) {
@@ -114,30 +112,6 @@ function run() {
         }
     });
 }
-function readDataFromJsonFile(filePath) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const newrelicMetrics = {};
-        try {
-            if (filePath === '') {
-                return Promise.resolve(newrelicMetrics);
-            }
-            const fileContent = yield fs_1.default.promises.readFile(filePath, 'utf8');
-            const objectToRead = JSON.parse(fileContent);
-            if (Object.keys(objectToRead).length) {
-                // eslint-disable-next-line github/array-foreach
-                Object.keys(objectToRead).forEach(key => {
-                    newrelicMetrics[key] = objectToRead[key];
-                });
-            }
-        }
-        catch (e) {
-            // eslint-disable-next-line no-console
-            console.log(e);
-        }
-        return Promise.resolve(newrelicMetrics);
-    });
-}
-exports.readDataFromJsonFile = readDataFromJsonFile;
 run();
 
 
