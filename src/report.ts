@@ -1,5 +1,6 @@
 import {fetchText} from './http'
 import fs from 'fs'
+import * as core from '@actions/core'
 
 export type NewrelicMetrics = Record<string, number>
 //NewrelicMetrics[]
@@ -24,10 +25,14 @@ function parseNewrelicMetrics(rawData: string): NewrelicMetrics {
     results: Record<string, number>[]
     metadata: {contents: {attribute: string}[]}
   }
-  for (let i = 0; i < results.metadata.contents.length; i++) {
-    const value = results.results[i].latest
-    const name = results.metadata.contents[i].attribute
-    metrics[name] = value
+  if (results) {
+    for (let i = 0; i < results.metadata.contents.length; i++) {
+      const value = results.results[i].latest
+      const name = results.metadata.contents[i].attribute
+      metrics[name] = value
+    }
+  } else {
+    throw Error('Cannot parse raw data \n ${rawData}')
   }
   return metrics
 }
@@ -72,26 +77,30 @@ export interface WcsMeasureResults {
 export async function loadLocalMetricsFromFile(
   filePath: string
 ): Promise<NewrelicMetrics | undefined> {
+  core.info(`Loading ${filePath}`)
   const fileContent = (await fileExists(filePath))
     ? await fs.promises.readFile(filePath, 'utf8')
     : undefined
   const metrics: Record<string, number> = {}
   if (fileContent) {
     const rawMetrics = JSON.parse(fileContent) as WcsMeasureResults
-    metrics['bundle_time_duration'] = rawMetrics.bundleTime
-    for (const k in rawMetrics.avg) {
-      const newRelicKeyName = k.replace(/ /g, '_')
-      metrics[newRelicKeyName] = rawMetrics.avg[k]
+    if (rawMetrics) {
+      metrics['bundle_time_duration'] = rawMetrics.bundleTime
+      for (const k in rawMetrics.avg) {
+        const newRelicKeyName = k.replace(/ /g, '_')
+        metrics[newRelicKeyName] = rawMetrics.avg[k]
+      }
+    } else {
+      throw new Error(`Cannot parse WcsMeasureResults for \n ${fileContent}`)
     }
   } else {
-    // eslint-disable-next-line no-console
-    console.log(`No file: Current directory: ${process.cwd()}`)
+    throw new Error(`File not found ${filePath}`)
   }
 
   return metrics
 }
 
-export function getListOfMetrcis(metricsList: NewrelicMetrics): string[] {
+export function getListOfMetrics(metricsList: NewrelicMetrics): string[] {
   const retval: string[] = []
   for (const k in metricsList) {
     const metrics_name = k.replace(/ /g, '_')
@@ -105,12 +114,13 @@ export async function getNewRelicDataForMetrics(
   nrQueryKey: string,
   metrics: NewrelicMetrics
 ): Promise<NewrelicMetrics> {
-  let retval: NewrelicMetrics = {}
   if (metrics) {
-    const listOfMetrcis = getListOfMetrcis(metrics)
-    retval = await getMetrics(nrAccountID, nrQueryKey, listOfMetrcis)
+    core.info(`Get NewRelic data for ${metrics.length} metrics`)
+    const listOfMetrcis = getListOfMetrics(metrics)
+    return await getMetrics(nrAccountID, nrQueryKey, listOfMetrcis)
+  } else {
+    throw Error('Empty metrics list')
   }
-  return retval
 }
 
 export function calcChangeForMetrics(
@@ -152,6 +162,7 @@ export async function generateReport(
 ): Promise<string> {
   const localMetrics = await loadLocalMetricsFromFile(localMetricsFileName)
   if (localMetrics) {
+    core.info(`Found ${localMetrics.length} metrics in ${localMetricsFileName}`)
     const newRelicMetrics = await getNewRelicDataForMetrics(
       nrAccountID,
       nrQueryKey,

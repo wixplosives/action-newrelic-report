@@ -358,6 +358,25 @@ module.exports = require("https");
 
 "use strict";
 
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -371,9 +390,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateReport = exports.makeMDReportStringForMetrics = exports.calcChangeForMetrics = exports.getNewRelicDataForMetrics = exports.getListOfMetrcis = exports.loadLocalMetricsFromFile = exports.fileExists = void 0;
+exports.generateReport = exports.makeMDReportStringForMetrics = exports.calcChangeForMetrics = exports.getNewRelicDataForMetrics = exports.getListOfMetrics = exports.loadLocalMetricsFromFile = exports.fileExists = void 0;
 const http_1 = __webpack_require__(270);
 const fs_1 = __importDefault(__webpack_require__(747));
+const core = __importStar(__webpack_require__(186));
 //NewrelicMetrics[]
 function convertMetricsListToNRQL(metrics) {
     const list = [];
@@ -387,10 +407,15 @@ function convertMetricsListToNRQL(metrics) {
 function parseNewrelicMetrics(rawData) {
     const metrics = {};
     const results = JSON.parse(rawData);
-    for (let i = 0; i < results.metadata.contents.length; i++) {
-        const value = results.results[i].latest;
-        const name = results.metadata.contents[i].attribute;
-        metrics[name] = value;
+    if (results) {
+        for (let i = 0; i < results.metadata.contents.length; i++) {
+            const value = results.results[i].latest;
+            const name = results.metadata.contents[i].attribute;
+            metrics[name] = value;
+        }
+    }
+    else {
+        throw Error('Cannot parse raw data \n ${rawData}');
     }
     return metrics;
 }
@@ -423,27 +448,32 @@ function fileExists(filePath) {
 exports.fileExists = fileExists;
 function loadLocalMetricsFromFile(filePath) {
     return __awaiter(this, void 0, void 0, function* () {
+        core.info(`Loading ${filePath}`);
         const fileContent = (yield fileExists(filePath))
             ? yield fs_1.default.promises.readFile(filePath, 'utf8')
             : undefined;
         const metrics = {};
         if (fileContent) {
             const rawMetrics = JSON.parse(fileContent);
-            metrics['bundle_time_duration'] = rawMetrics.bundleTime;
-            for (const k in rawMetrics.avg) {
-                const newRelicKeyName = k.replace(/ /g, '_');
-                metrics[newRelicKeyName] = rawMetrics.avg[k];
+            if (rawMetrics) {
+                metrics['bundle_time_duration'] = rawMetrics.bundleTime;
+                for (const k in rawMetrics.avg) {
+                    const newRelicKeyName = k.replace(/ /g, '_');
+                    metrics[newRelicKeyName] = rawMetrics.avg[k];
+                }
+            }
+            else {
+                throw new Error(`Cannot parse WcsMeasureResults for \n ${fileContent}`);
             }
         }
         else {
-            // eslint-disable-next-line no-console
-            console.log(`No file: Current directory: ${process.cwd()}`);
+            throw new Error(`File not found ${filePath}`);
         }
         return metrics;
     });
 }
 exports.loadLocalMetricsFromFile = loadLocalMetricsFromFile;
-function getListOfMetrcis(metricsList) {
+function getListOfMetrics(metricsList) {
     const retval = [];
     for (const k in metricsList) {
         const metrics_name = k.replace(/ /g, '_');
@@ -451,15 +481,17 @@ function getListOfMetrcis(metricsList) {
     }
     return retval;
 }
-exports.getListOfMetrcis = getListOfMetrcis;
+exports.getListOfMetrics = getListOfMetrics;
 function getNewRelicDataForMetrics(nrAccountID, nrQueryKey, metrics) {
     return __awaiter(this, void 0, void 0, function* () {
-        let retval = {};
         if (metrics) {
-            const listOfMetrcis = getListOfMetrcis(metrics);
-            retval = yield getMetrics(nrAccountID, nrQueryKey, listOfMetrcis);
+            core.info(`Get NewRelic data for ${metrics.length} metrics`);
+            const listOfMetrcis = getListOfMetrics(metrics);
+            return yield getMetrics(nrAccountID, nrQueryKey, listOfMetrcis);
         }
-        return retval;
+        else {
+            throw Error('Empty metrics list');
+        }
     });
 }
 exports.getNewRelicDataForMetrics = getNewRelicDataForMetrics;
@@ -489,6 +521,7 @@ function generateReport(localMetricsFileName, nrAccountID, nrQueryKey) {
     return __awaiter(this, void 0, void 0, function* () {
         const localMetrics = yield loadLocalMetricsFromFile(localMetricsFileName);
         if (localMetrics) {
+            core.info(`Found ${localMetrics.length} metrics in ${localMetricsFileName}`);
             const newRelicMetrics = yield getNewRelicDataForMetrics(nrAccountID, nrQueryKey, localMetrics);
             if (newRelicMetrics) {
                 const report = makeMDReportStringForMetrics(localMetrics, newRelicMetrics);
