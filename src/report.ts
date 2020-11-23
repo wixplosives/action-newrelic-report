@@ -50,10 +50,6 @@ async function getMetrics(
   })
 
   const parsedResults = parseNewrelicMetrics(result)
-  // eslint-disable-next-line no-console
-  console.log(result)
-  // eslint-disable-next-line no-console
-  console.log(parsedResults)
   return parsedResults
 }
 

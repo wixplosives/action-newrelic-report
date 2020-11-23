@@ -433,10 +433,6 @@ function getMetrics(newrelicAccountId, newrelicQueryKey, metrics) {
             }
         });
         const parsedResults = parseNewrelicMetrics(result);
-        // eslint-disable-next-line no-console
-        console.log(result);
-        // eslint-disable-next-line no-console
-        console.log(parsedResults);
         return parsedResults;
     });
 }
