@@ -76,7 +76,7 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 var __importStar = (this && this.__importStar) || function (mod) {
     if (mod && mod.__esModule) return mod;
     var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
     __setModuleDefault(result, mod);
     return result;
 };
@@ -89,24 +89,55 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.readDataFromJsonFile = void 0;
 const core = __importStar(__webpack_require__(186));
-const wait_1 = __webpack_require__(817);
+const fs_1 = __importDefault(__webpack_require__(747));
+const report_1 = __webpack_require__(269);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const ms = core.getInput('milliseconds');
-            core.debug(`Waiting ${ms} milliseconds ...`); // debug is only output if you set the secret `ACTIONS_RUNNER_DEBUG` to true
-            core.debug(new Date().toTimeString());
-            yield wait_1.wait(parseInt(ms, 10));
-            core.debug(new Date().toTimeString());
-            core.setOutput('time', new Date().toTimeString());
+            const inputFile = core.getInput('inpit_file');
+            const queryKey = core.getInput('nr_query_id');
+            const accountId = core.getInput('nr_account_id');
+            //const queryKey = 'NRIQ-nnXX46i5SjmqLp_oc7XhgqqZiKq97Jv_'
+            //const accountId = '23428'
+            //const inputFile = '/Users/alexshe/dev/newrelic-toolkit/packages/newrelic-cli/test/fixtures/measure_result.json'
+            const mdReport = yield report_1.generateReport(inputFile, accountId, queryKey);
+            core.setOutput('data', mdReport);
         }
         catch (error) {
             core.setFailed(error.message);
         }
     });
 }
+function readDataFromJsonFile(filePath) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const newrelicMetrics = {};
+        try {
+            if (filePath === '') {
+                return Promise.resolve(newrelicMetrics);
+            }
+            const fileContent = yield fs_1.default.promises.readFile(filePath, 'utf8');
+            const objectToRead = JSON.parse(fileContent);
+            if (Object.keys(objectToRead).length) {
+                // eslint-disable-next-line github/array-foreach
+                Object.keys(objectToRead).forEach(key => {
+                    newrelicMetrics[key] = objectToRead[key];
+                });
+            }
+        }
+        catch (e) {
+            // eslint-disable-next-line no-console
+            console.log(e);
+        }
+        return Promise.resolve(newrelicMetrics);
+    });
+}
+exports.readDataFromJsonFile = readDataFromJsonFile;
 run();
 
 
@@ -341,6 +372,254 @@ exports.getState = getState;
 
 /***/ }),
 
+/***/ 211:
+/***/ (function(module) {
+
+module.exports = require("https");
+
+/***/ }),
+
+/***/ 269:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.generateReport = exports.makeMDReportStringForMetrics = exports.calcChangeForMetrics = exports.getNewRelicDataForMetrics = exports.getListOfMetrcis = exports.loadLocalMetricsFromFile = exports.fileExists = void 0;
+const http_1 = __webpack_require__(270);
+const fs_1 = __importDefault(__webpack_require__(747));
+//NewrelicMetrics[]
+function convertMetricsListToNRQL(metrics) {
+    const list = [];
+    for (const entry of metrics) {
+        list.push(`latest(${entry})`);
+    }
+    const subQuery = list.join(',');
+    const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os != 'darwin'`;
+    return query;
+}
+function parseNewrelicMetrics(rawData) {
+    const metrics = {};
+    const results = JSON.parse(rawData);
+    for (let i = 0; i < results.metadata.contents.length; i++) {
+        const value = results.results[i].latest;
+        const name = results.metadata.contents[i].attribute;
+        metrics[name] = value;
+    }
+    return metrics;
+}
+function getMetrics(newrelicAccountId, newrelicQueryKey, metrics) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const querySelector = convertMetricsListToNRQL(metrics);
+        const urlWithQuery = `https://insights-api.newrelic.com/v1/accounts/${newrelicAccountId}/query?nrql=${querySelector}`;
+        const encoded = encodeURI(urlWithQuery);
+        const result = yield http_1.fetchText(encoded, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Query-Key': newrelicQueryKey
+            }
+        });
+        const parsedResults = parseNewrelicMetrics(result);
+        // eslint-disable-next-line no-console
+        console.log(result);
+        // eslint-disable-next-line no-console
+        console.log(parsedResults);
+        return parsedResults;
+    });
+}
+function fileExists(filePath) {
+    return __awaiter(this, void 0, void 0, function* () {
+        try {
+            return (yield fs_1.default.promises.stat(filePath)).isFile();
+        }
+        catch (_a) {
+            return false;
+        }
+    });
+}
+exports.fileExists = fileExists;
+function loadLocalMetricsFromFile(filePath) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const fileContent = (yield fileExists(filePath))
+            ? yield fs_1.default.promises.readFile(filePath, 'utf8')
+            : undefined;
+        const metrics = {};
+        if (fileContent) {
+            const rawMetrics = JSON.parse(fileContent);
+            metrics['bundle_time_duration'] = rawMetrics.bundleTime;
+            for (const k in rawMetrics.avg) {
+                const newRelicKeyName = k.replace(/ /g, '_');
+                metrics[newRelicKeyName] = rawMetrics.avg[k];
+            }
+        }
+        else {
+            // eslint-disable-next-line no-console
+            console.log(`No file: Current directory: ${process.cwd()}`);
+        }
+        return metrics;
+    });
+}
+exports.loadLocalMetricsFromFile = loadLocalMetricsFromFile;
+function getListOfMetrcis(metricsList) {
+    const retval = [];
+    for (const k in metricsList) {
+        const metrics_name = k.replace(/ /g, '_');
+        retval.push(metrics_name);
+    }
+    return retval;
+}
+exports.getListOfMetrcis = getListOfMetrcis;
+function getNewRelicDataForMetrics(nrAccountID, nrQueryKey, metrics) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let retval = {};
+        if (metrics) {
+            const listOfMetrcis = getListOfMetrcis(metrics);
+            retval = yield getMetrics(nrAccountID, nrQueryKey, listOfMetrcis);
+        }
+        return retval;
+    });
+}
+exports.getNewRelicDataForMetrics = getNewRelicDataForMetrics;
+function calcChangeForMetrics(metrics, nrValues) {
+    const retval = {};
+    for (const k in metrics) {
+        const localMetricVal = metrics[k];
+        const nrValue = nrValues[k];
+        const change = Math.round((localMetricVal / nrValue - 1) * 100);
+        retval[k] = change;
+    }
+    return retval;
+}
+exports.calcChangeForMetrics = calcChangeForMetrics;
+function makeMDReportStringForMetrics(localMetrics, newrelicLatest) {
+    const comparison = calcChangeForMetrics(localMetrics, newrelicLatest);
+    const reportRows = new Array('');
+    reportRows.push('| Test | Duration(ms) | Latest From NewRelic (ms)| Change (ms)');
+    reportRows.push('|----|---:|---:|---:|');
+    for (const k in localMetrics) {
+        reportRows.push(`|${k}| ${localMetrics[k]}| ${newrelicLatest[k]}| ${comparison[k]}%`);
+    }
+    return reportRows.join('\n');
+}
+exports.makeMDReportStringForMetrics = makeMDReportStringForMetrics;
+function generateReport(localMetricsFileName, nrAccountID, nrQueryKey) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const localMetrics = yield loadLocalMetricsFromFile(localMetricsFileName);
+        if (localMetrics) {
+            const newRelicMetrics = yield getNewRelicDataForMetrics(nrAccountID, nrQueryKey, localMetrics);
+            if (newRelicMetrics) {
+                const report = makeMDReportStringForMetrics(localMetrics, newRelicMetrics);
+                return report;
+            }
+        }
+        return '';
+    });
+}
+exports.generateReport = generateReport;
+
+
+/***/ }),
+
+/***/ 270:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+var __asyncValues = (this && this.__asyncValues) || function (o) {
+    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+    var m = o[Symbol.asyncIterator], i;
+    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
+    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
+    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.FetchError = exports.isSecureUrl = exports.readTextFromStream = exports.fetchText = void 0;
+const http_1 = __importDefault(__webpack_require__(605));
+const https_1 = __importDefault(__webpack_require__(211));
+const events_1 = __webpack_require__(614);
+const url_1 = __webpack_require__(835);
+function fetchText(url, options = {}) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const request = isSecureUrl(url)
+            ? https_1.default.get(url, options)
+            : http_1.default.get(url, options);
+        const [response] = (yield events_1.once(request, 'response'));
+        const { statusCode } = response;
+        if (statusCode !== 200) {
+            response.resume();
+            throw new FetchError(`HTTP ${String(statusCode)}: failed fetching ${url.toString()}`, statusCode);
+        }
+        return readTextFromStream(response);
+    });
+}
+exports.fetchText = fetchText;
+function readTextFromStream(readable, encoding = 'utf8') {
+    var readable_1, readable_1_1;
+    var e_1, _a;
+    return __awaiter(this, void 0, void 0, function* () {
+        let text = '';
+        readable.setEncoding(encoding);
+        try {
+            for (readable_1 = __asyncValues(readable); readable_1_1 = yield readable_1.next(), !readable_1_1.done;) {
+                const chunk = readable_1_1.value;
+                text += chunk;
+            }
+        }
+        catch (e_1_1) { e_1 = { error: e_1_1 }; }
+        finally {
+            try {
+                if (readable_1_1 && !readable_1_1.done && (_a = readable_1.return)) yield _a.call(readable_1);
+            }
+            finally { if (e_1) throw e_1.error; }
+        }
+        return text;
+    });
+}
+exports.readTextFromStream = readTextFromStream;
+function isSecureUrl(url) {
+    return url instanceof url_1.URL
+        ? url.protocol === 'https'
+        : url.startsWith('https://');
+}
+exports.isSecureUrl = isSecureUrl;
+class FetchError extends Error {
+    constructor(message, statusCode) {
+        super(message);
+        this.statusCode = statusCode;
+        // https://www.typescriptlang.org/docs/handbook/release-notes/typescript-2-2.html#support-for-newtarget
+        Object.setPrototypeOf(this, new.target.prototype);
+    }
+}
+exports.FetchError = FetchError;
+
+
+/***/ }),
+
 /***/ 351:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -440,6 +719,20 @@ function escapeProperty(s) {
 
 /***/ }),
 
+/***/ 605:
+/***/ (function(module) {
+
+module.exports = require("http");
+
+/***/ }),
+
+/***/ 614:
+/***/ (function(module) {
+
+module.exports = require("events");
+
+/***/ }),
+
 /***/ 622:
 /***/ (function(module) {
 
@@ -447,34 +740,17 @@ module.exports = require("path");
 
 /***/ }),
 
-/***/ 817:
-/***/ (function(__unusedmodule, exports) {
+/***/ 747:
+/***/ (function(module) {
 
-"use strict";
+module.exports = require("fs");
 
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.wait = void 0;
-function wait(milliseconds) {
-    return __awaiter(this, void 0, void 0, function* () {
-        return new Promise(resolve => {
-            if (isNaN(milliseconds)) {
-                throw new Error('milliseconds not a number');
-            }
-            setTimeout(() => resolve('done!'), milliseconds);
-        });
-    });
-}
-exports.wait = wait;
+/***/ }),
 
+/***/ 835:
+/***/ (function(module) {
+
+module.exports = require("url");
 
 /***/ })
 

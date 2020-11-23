@@ -9,7 +9,7 @@ function convertMetricsListToNRQL(metrics: string[]): string {
     list.push(`latest(${entry})`)
   }
   const subQuery = list.join(',')
-  const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os != 'darwin'`;
+  const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os != 'darwin'`
 
   return query
 }
@@ -59,7 +59,7 @@ async function getMetrics(
 
 export async function fileExists(filePath: fs.PathLike): Promise<boolean> {
   try {
-    return (await fs.promises.stat(filePath)).isFile();
+    return (await fs.promises.stat(filePath)).isFile()
   } catch {
     return false
   }
@@ -89,7 +89,7 @@ export async function loadLocalMetricsFromFile(
     }
   } else {
     // eslint-disable-next-line no-console
-    console.log(`No file: Current directory: ${  process.cwd()}`)
+    console.log(`No file: Current directory: ${process.cwd()}`)
   }
 
   return metrics
@@ -162,7 +162,7 @@ export async function generateReport(
       localMetrics
     )
     if (newRelicMetrics) {
-      const report = makeMDReportStringForMetrics(localMetrics, newRelicMetrics);
+      const report = makeMDReportStringForMetrics(localMetrics, newRelicMetrics)
       return report
     }
   }

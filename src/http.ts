@@ -42,7 +42,7 @@ export function isSecureUrl(url: string | URL): boolean {
 
 export class FetchError extends Error {
   constructor(message?: string, public statusCode?: number) {
-    super(message);
+    super(message)
     // https://www.typescriptlang.org/docs/handbook/release-notes/typescript-2-2.html#support-for-newtarget
     Object.setPrototypeOf(this, new.target.prototype)
   }
