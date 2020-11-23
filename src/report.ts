@@ -115,7 +115,7 @@ export async function getNewRelicDataForMetrics(
   metrics: NewrelicMetrics
 ): Promise<NewrelicMetrics> {
   if (metrics) {
-    core.info(`Get NewRelic data for ${metrics.length} metrics`)
+    core.info(`Get NewRelic data for ${Object.keys(metrics).length} metrics`)
     const listOfMetrcis = getListOfMetrics(metrics)
     return await getMetrics(nrAccountID, nrQueryKey, listOfMetrcis)
   } else {
@@ -162,7 +162,8 @@ export async function generateReport(
 ): Promise<string> {
   const localMetrics = await loadLocalMetricsFromFile(localMetricsFileName)
   if (localMetrics) {
-    core.info(`Found ${localMetrics.length} metrics in ${localMetricsFileName}`)
+    const len = Object.keys(localMetrics).length
+    core.info(`Found ${len} metrics in ${localMetricsFileName}`)
     const newRelicMetrics = await getNewRelicDataForMetrics(
       nrAccountID,
       nrQueryKey,

@@ -485,7 +485,7 @@ exports.getListOfMetrics = getListOfMetrics;
 function getNewRelicDataForMetrics(nrAccountID, nrQueryKey, metrics) {
     return __awaiter(this, void 0, void 0, function* () {
         if (metrics) {
-            core.info(`Get NewRelic data for ${metrics.length} metrics`);
+            core.info(`Get NewRelic data for ${Object.keys(metrics).length} metrics`);
             const listOfMetrcis = getListOfMetrics(metrics);
             return yield getMetrics(nrAccountID, nrQueryKey, listOfMetrcis);
         }
@@ -521,7 +521,8 @@ function generateReport(localMetricsFileName, nrAccountID, nrQueryKey) {
     return __awaiter(this, void 0, void 0, function* () {
         const localMetrics = yield loadLocalMetricsFromFile(localMetricsFileName);
         if (localMetrics) {
-            core.info(`Found ${localMetrics.length} metrics in ${localMetricsFileName}`);
+            const len = Object.keys(localMetrics).length;
+            core.info(`Found ${len} metrics in ${localMetricsFileName}`);
             const newRelicMetrics = yield getNewRelicDataForMetrics(nrAccountID, nrQueryKey, localMetrics);
             if (newRelicMetrics) {
                 const report = makeMDReportStringForMetrics(localMetrics, newRelicMetrics);
