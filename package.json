@@ -1,5 +1,5 @@
 {
-  "name": "typescript-action",
+  "name": "action-newrelic-report",
   "version": "0.0.0",
   "private": true,
   "description": "TypeScript template action",
@@ -25,7 +25,9 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@actions/core": "^1.2.5"
+    "@actions/core": "^1.2.5",
+    "newrelic": "^6.13.0",
+    "ts-type": "^1.2.34"
   },
   "devDependencies": {
     "@types/jest": "^26.0.10",

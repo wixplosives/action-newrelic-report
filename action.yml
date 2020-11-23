@@ -1,11 +1,20 @@
-name: 'Your name here'
+name: 'NewRelic comparison functionality'
 description: 'Provide a description here'
-author: 'Your name or organization here'
+author: 'core3'
+branding:
+  icon: 'crosshair'  
+  color: 'blue'
 inputs:
-  milliseconds: # change this
+  inpit_file: # change this
     required: true
-    description: 'input description here'
-    default: 'default value if applicable'
+    description: 'input file in json format with wcs measure results'
+  nr_query_id: # change this
+    required: true
+    description: 'newrelic query id'
+  nr_account_id: # change this
+    required: true
+    description: 'newrelic account id'
 runs:
   using: 'node12'
   main: 'dist/index.js'
+s

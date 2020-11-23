@@ -1,0 +1,18 @@
+{
+    "launching node environment": 3253.4,
+    "loading page assets": 3551,
+    "component list is visible": 7.6,
+    "loading simulation grid": 3435.4,
+    "props panel is populated": 1015.2,
+    "simulation is visible": 11248.2,
+    "duplicating simulation": 3634.8,
+    "changing property": 1573.6,
+    "renaming simulation": 823.6,
+    "removing simulation": 622.8,
+    "creating simulation": 1854.2,
+    "loading simulation grid after webpack loaded": 1547.8,
+    "simulation is visible after webpack loaded": 676,
+    "prop panel modifies after change from fs": 621,
+    "new component from fs is visible in tree": 777.2,
+    "creating first simulation of new component": 4328.4
+}
