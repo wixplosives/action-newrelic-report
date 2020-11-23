@@ -25,7 +25,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@actions/core": "^1.2.5",
+    "@actions/core": "^1.2.6",
     "@types/newrelic": "^6.13.0",
     "newrelic": "^6.13.0",
     "ts-type": "^1.2.34"
