@@ -100,7 +100,7 @@ function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const inputFile = core.getInput('inpit_file');
-            const outputFile = core.getInput('inpit_file');
+            const outputFile = core.getInput('output_file');
             const queryKey = core.getInput('nr_query_id');
             const accountId = core.getInput('nr_account_id');
             const mdReport = yield report_1.generateReport(inputFile, accountId, queryKey);
