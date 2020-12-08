@@ -43,7 +43,7 @@ You can now validate the action by referencing `./` in a workflow in your repo (
 ```yaml
 uses: ./
 with:
-  inpit_file: __tests__/fixtures/measure_result.json
+  input_file: __tests__/fixtures/measure_result.json
   output_file: out.md
   nr_query_id: ${{ secrets.NEW_RELIC_QUERY_ID }}
   nr_account_id: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
