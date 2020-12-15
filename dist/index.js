@@ -401,7 +401,7 @@ function convertMetricsListToNRQL(metrics) {
         list.push(`latest(${entry})`);
     }
     const subQuery = list.join(',');
-    const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os != 'darwin'`;
+    const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os = 'linux'`;
     return query;
 }
 function parseNewrelicMetrics(rawData) {
