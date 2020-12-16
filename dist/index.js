@@ -525,7 +525,7 @@ exports.calcChangeForMetrics = calcChangeForMetrics;
 function makeMDReportStringForMetrics(localMetrics, newrelicLatest) {
     const comparison = calcChangeForMetrics(localMetrics, newrelicLatest);
     const reportRows = new Array('');
-    reportRows.push('| Test | Duration(ms) | Latest From NewRelic (ms)| Change (ms)');
+    reportRows.push('| Test | Duration(ms) | Average From NewRelic (ms)| Change (ms)');
     reportRows.push('|----|---:|---:|---:|');
     for (const k in localMetrics) {
         reportRows.push(`|${k}| ${localMetrics[k]}| ${newrelicLatest[k]}| ${comparison[k]}%`);
