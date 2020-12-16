@@ -27,7 +27,7 @@ function parseNewrelicMetrics(rawData: string): NewrelicMetrics {
   }
   if (results) {
     for (let i = 0; i < results.metadata.contents.length; i++) {
-      const value = results.results[i].latest
+      const value = Math.round(results.results[i].average)
       const name = results.metadata.contents[i].attribute
       metrics[name] = value
     }
