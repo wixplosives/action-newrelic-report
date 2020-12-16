@@ -7,7 +7,7 @@ export type NewrelicMetrics = Record<string, number>
 function convertMetricsListToNRQL(metrics: string[]): string {
   const list: string[] = []
   for (const entry of metrics) {
-    list.push(`latest(${entry})`)
+    list.push(`average(${entry})`)
   }
   const subQuery = list.join(',')
   const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os = 'linux'`
