@@ -31,5 +31,5 @@ jobs:
           output_file: output.txt
           nr_query_id: ${{ secrets.NEW_RELIC_QUERY_ID }}
           nr_account_id: ${{ secrets.NEW_RELIC_ACCOUNT_ID }}
-          measured_os: ${matrix.os}
+          measured_os: ${{ matrix.os }}
       - run: cat output.txt
