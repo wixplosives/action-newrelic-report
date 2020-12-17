@@ -182,7 +182,7 @@ export async function generateReport(
   return ''
 }
 
-export function standardizeOS(os: string) {
+export function standardizeOS(os: string): string {
   if (os.includes('windows')) {
     return 'win32'
   }
