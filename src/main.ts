@@ -8,8 +8,11 @@ async function run(): Promise<void> {
     const outputFile: string = core.getInput('output_file')
     const queryKey: string = core.getInput('nr_query_id')
     const accountId: string = core.getInput('nr_account_id')
-
-    const mdReport = await generateReport(inputFile, accountId, queryKey)
+    let os: string = core.getInput('measured_os')
+    if (!os) {
+      os = 'linux'
+    }
+    const mdReport = await generateReport(inputFile, accountId, queryKey, os)
 
     fs.writeFileSync(outputFile, mdReport)
     core.setOutput('data', mdReport)

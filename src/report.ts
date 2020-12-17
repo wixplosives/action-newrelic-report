@@ -4,13 +4,14 @@ import * as core from '@actions/core'
 
 export type NewrelicMetrics = Record<string, number>
 //NewrelicMetrics[]
-function convertMetricsListToNRQL(metrics: string[]): string {
+function convertMetricsListToNRQL(metrics: string[], os: string): string {
   const list: string[] = []
   for (const entry of metrics) {
     list.push(`latest(${entry})`)
   }
+  os = standardizeOS(os)
   const subQuery = list.join(',')
-  const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os = 'linux'`
+  const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os = ${os}`
 
   return query
 }
@@ -40,9 +41,10 @@ function parseNewrelicMetrics(rawData: string): NewrelicMetrics {
 async function getMetrics(
   newrelicAccountId: string,
   newrelicQueryKey: string,
-  metrics: string[]
+  metrics: string[],
+  os: string
 ): Promise<NewrelicMetrics> {
-  const querySelector = convertMetricsListToNRQL(metrics)
+  const querySelector = convertMetricsListToNRQL(metrics, os)
   const urlWithQuery = `https://insights-api.newrelic.com/v1/accounts/${newrelicAccountId}/query?nrql=${querySelector}`
 
   const encoded = encodeURI(urlWithQuery)
@@ -112,12 +114,13 @@ export function getListOfMetrics(metricsList: NewrelicMetrics): string[] {
 export async function getNewRelicDataForMetrics(
   nrAccountID: string,
   nrQueryKey: string,
-  metrics: NewrelicMetrics
+  metrics: NewrelicMetrics,
+  os: string
 ): Promise<NewrelicMetrics> {
   if (metrics) {
     core.info(`Get NewRelic data for ${Object.keys(metrics).length} metrics`)
     const listOfMetrcis = getListOfMetrics(metrics)
-    return await getMetrics(nrAccountID, nrQueryKey, listOfMetrcis)
+    return await getMetrics(nrAccountID, nrQueryKey, listOfMetrcis, os)
   } else {
     throw Error('Empty metrics list')
   }
@@ -158,7 +161,8 @@ export function makeMDReportStringForMetrics(
 export async function generateReport(
   localMetricsFileName: string,
   nrAccountID: string,
-  nrQueryKey: string
+  nrQueryKey: string,
+  os: string
 ): Promise<string> {
   const localMetrics = await loadLocalMetricsFromFile(localMetricsFileName)
   if (localMetrics) {
@@ -167,7 +171,8 @@ export async function generateReport(
     const newRelicMetrics = await getNewRelicDataForMetrics(
       nrAccountID,
       nrQueryKey,
-      localMetrics
+      localMetrics,
+      os
     )
     if (newRelicMetrics) {
       const report = makeMDReportStringForMetrics(localMetrics, newRelicMetrics)
@@ -175,4 +180,17 @@ export async function generateReport(
     }
   }
   return ''
+}
+
+export function standardizeOS(os: string) {
+  if (os.includes('windows')) {
+    return 'win32'
+  }
+  if (os.includes('linux')) {
+    return 'linux'
+  }
+  if (os.includes('mac')) {
+    return 'darwin'
+  }
+  throw new Error('Could not find specified OS')
 }
