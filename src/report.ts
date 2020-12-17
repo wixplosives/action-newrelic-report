@@ -9,7 +9,6 @@ function convertMetricsListToNRQL(metrics: string[], os: string): string {
   for (const entry of metrics) {
     list.push(`average(${entry})`)
   }
-  os = standardizeOS(os)
   const subQuery = list.join(',')
   const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os = ${os}`
 
@@ -142,12 +141,13 @@ export function calcChangeForMetrics(
 
 export function makeMDReportStringForMetrics(
   localMetrics: NewrelicMetrics,
-  newrelicLatest: NewrelicMetrics
+  newrelicLatest: NewrelicMetrics,
+  os: string
 ): string {
   const comparison = calcChangeForMetrics(localMetrics, newrelicLatest)
   const reportRows = new Array('')
   reportRows.push(
-    '| Test | Duration(ms) | Average From NewRelic (ms)| Change (ms)'
+    `| Test (${os}) | Duration(ms) | Average From NewRelic (ms)| Change (ms)`
   )
   reportRows.push('|----|---:|---:|---:|')
   for (const k in localMetrics) {
@@ -164,6 +164,7 @@ export async function generateReport(
   nrQueryKey: string,
   os: string
 ): Promise<string> {
+  os = standardizeOS(os)
   const localMetrics = await loadLocalMetricsFromFile(localMetricsFileName)
   if (localMetrics) {
     const len = Object.keys(localMetrics).length
@@ -175,7 +176,11 @@ export async function generateReport(
       os
     )
     if (newRelicMetrics) {
-      const report = makeMDReportStringForMetrics(localMetrics, newRelicMetrics)
+      const report = makeMDReportStringForMetrics(
+        localMetrics,
+        newRelicMetrics,
+        os
+      )
       return report
     }
   }
