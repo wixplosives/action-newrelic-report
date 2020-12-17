@@ -10,7 +10,7 @@ function convertMetricsListToNRQL(metrics: string[], os: string): string {
     list.push(`average(${entry})`)
   }
   const subQuery = list.join(',')
-  const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os = ${os}`
+  const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os = '${os}'`
 
   return query
 }
