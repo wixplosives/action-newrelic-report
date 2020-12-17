@@ -555,7 +555,7 @@ function standardizeOS(os) {
     if (os.includes('windows')) {
         return 'win32';
     }
-    if (os.includes('linux')) {
+    if (os.includes('linux') || os.includes('ubuntu')) {
         return 'linux';
     }
     if (os.includes('mac')) {
