@@ -103,7 +103,8 @@ function run() {
             const outputFile = core.getInput('output_file');
             const queryKey = core.getInput('nr_query_id');
             const accountId = core.getInput('nr_account_id');
-            const mdReport = yield report_1.generateReport(inputFile, accountId, queryKey);
+            const os = core.getInput('measured_os');
+            const mdReport = yield report_1.generateReport(inputFile, accountId, queryKey, os);
             fs_1.default.writeFileSync(outputFile, mdReport);
             core.setOutput('data', mdReport);
         }
@@ -406,18 +407,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateReport = exports.makeMDReportStringForMetrics = exports.calcChangeForMetrics = exports.getNewRelicDataForMetrics = exports.getListOfMetrics = exports.loadLocalMetricsFromFile = exports.fileExists = void 0;
+exports.standardizeOS = exports.generateReport = exports.makeMDReportStringForMetrics = exports.calcChangeForMetrics = exports.getNewRelicDataForMetrics = exports.getListOfMetrics = exports.loadLocalMetricsFromFile = exports.fileExists = void 0;
 const http_1 = __webpack_require__(270);
 const fs_1 = __importDefault(__webpack_require__(747));
 const core = __importStar(__webpack_require__(186));
 //NewrelicMetrics[]
-function convertMetricsListToNRQL(metrics) {
+function convertMetricsListToNRQL(metrics, os) {
     const list = [];
     for (const entry of metrics) {
         list.push(`average(${entry})`);
     }
     const subQuery = list.join(',');
-    const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os = 'linux'`;
+    const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os = ${os}`;
     return query;
 }
 function parseNewrelicMetrics(rawData) {
@@ -435,9 +436,9 @@ function parseNewrelicMetrics(rawData) {
     }
     return metrics;
 }
-function getMetrics(newrelicAccountId, newrelicQueryKey, metrics) {
+function getMetrics(newrelicAccountId, newrelicQueryKey, metrics, os) {
     return __awaiter(this, void 0, void 0, function* () {
-        const querySelector = convertMetricsListToNRQL(metrics);
+        const querySelector = convertMetricsListToNRQL(metrics, os);
         const urlWithQuery = `https://insights-api.newrelic.com/v1/accounts/${newrelicAccountId}/query?nrql=${querySelector}`;
         const encoded = encodeURI(urlWithQuery);
         const result = yield http_1.fetchText(encoded, {
@@ -498,12 +499,12 @@ function getListOfMetrics(metricsList) {
     return retval;
 }
 exports.getListOfMetrics = getListOfMetrics;
-function getNewRelicDataForMetrics(nrAccountID, nrQueryKey, metrics) {
+function getNewRelicDataForMetrics(nrAccountID, nrQueryKey, metrics, os) {
     return __awaiter(this, void 0, void 0, function* () {
         if (metrics) {
             core.info(`Get NewRelic data for ${Object.keys(metrics).length} metrics`);
             const listOfMetrcis = getListOfMetrics(metrics);
-            return yield getMetrics(nrAccountID, nrQueryKey, listOfMetrcis);
+            return yield getMetrics(nrAccountID, nrQueryKey, listOfMetrcis, os);
         }
         else {
             throw Error('Empty metrics list');
@@ -522,10 +523,10 @@ function calcChangeForMetrics(metrics, nrValues) {
     return retval;
 }
 exports.calcChangeForMetrics = calcChangeForMetrics;
-function makeMDReportStringForMetrics(localMetrics, newrelicLatest) {
+function makeMDReportStringForMetrics(localMetrics, newrelicLatest, os) {
     const comparison = calcChangeForMetrics(localMetrics, newrelicLatest);
     const reportRows = new Array('');
-    reportRows.push('| Test | Duration(ms) | Average From NewRelic (ms)| Change (ms)');
+    reportRows.push(`| Test (${os}) | Duration(ms) | Average From NewRelic (ms)| Change (ms)`);
     reportRows.push('|----|---:|---:|---:|');
     for (const k in localMetrics) {
         reportRows.push(`|${k}| ${localMetrics[k]}| ${newrelicLatest[k]}| ${comparison[k]}%`);
@@ -533,15 +534,16 @@ function makeMDReportStringForMetrics(localMetrics, newrelicLatest) {
     return reportRows.join('\n');
 }
 exports.makeMDReportStringForMetrics = makeMDReportStringForMetrics;
-function generateReport(localMetricsFileName, nrAccountID, nrQueryKey) {
+function generateReport(localMetricsFileName, nrAccountID, nrQueryKey, os) {
     return __awaiter(this, void 0, void 0, function* () {
+        os = standardizeOS(os);
         const localMetrics = yield loadLocalMetricsFromFile(localMetricsFileName);
         if (localMetrics) {
             const len = Object.keys(localMetrics).length;
             core.info(`Found ${len} metrics in ${localMetricsFileName}`);
-            const newRelicMetrics = yield getNewRelicDataForMetrics(nrAccountID, nrQueryKey, localMetrics);
+            const newRelicMetrics = yield getNewRelicDataForMetrics(nrAccountID, nrQueryKey, localMetrics, os);
             if (newRelicMetrics) {
-                const report = makeMDReportStringForMetrics(localMetrics, newRelicMetrics);
+                const report = makeMDReportStringForMetrics(localMetrics, newRelicMetrics, os);
                 return report;
             }
         }
@@ -549,6 +551,19 @@ function generateReport(localMetricsFileName, nrAccountID, nrQueryKey) {
     });
 }
 exports.generateReport = generateReport;
+function standardizeOS(os) {
+    if (os.includes('windows')) {
+        return 'win32';
+    }
+    if (os.includes('linux')) {
+        return 'linux';
+    }
+    if (os.includes('mac')) {
+        return 'darwin';
+    }
+    throw new Error('Could not find specified OS');
+}
+exports.standardizeOS = standardizeOS;
 
 
 /***/ }),
