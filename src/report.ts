@@ -7,7 +7,7 @@ export type NewrelicMetrics = Record<string, number>
 function convertMetricsListToNRQL(metrics: string[], os: string): string {
   const list: string[] = []
   for (const entry of metrics) {
-    list.push(`latest(${entry})`)
+    list.push(`average(${entry})`)
   }
   os = standardizeOS(os)
   const subQuery = list.join(',')
@@ -28,7 +28,7 @@ function parseNewrelicMetrics(rawData: string): NewrelicMetrics {
   }
   if (results) {
     for (let i = 0; i < results.metadata.contents.length; i++) {
-      const value = results.results[i].latest
+      const value = Math.round(results.results[i].average)
       const name = results.metadata.contents[i].attribute
       metrics[name] = value
     }
@@ -147,7 +147,7 @@ export function makeMDReportStringForMetrics(
   const comparison = calcChangeForMetrics(localMetrics, newrelicLatest)
   const reportRows = new Array('')
   reportRows.push(
-    '| Test | Duration(ms) | Latest From NewRelic (ms)| Change (ms)'
+    '| Test | Duration(ms) | Average From NewRelic (ms)| Change (ms)'
   )
   reportRows.push('|----|---:|---:|---:|')
   for (const k in localMetrics) {
