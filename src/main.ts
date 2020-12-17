@@ -8,7 +8,7 @@ async function run(): Promise<void> {
     const outputFile: string = core.getInput('output_file')
     const queryKey: string = core.getInput('nr_query_id')
     const accountId: string = core.getInput('nr_account_id')
-    let os: string = core.getInput('measured_os')
+    const os: string = core.getInput('measured_os')
 
     const mdReport = await generateReport(inputFile, accountId, queryKey, os)
 

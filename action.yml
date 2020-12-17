@@ -17,7 +17,7 @@ inputs:
   nr_account_id: # change this
     required: true
     description: 'newrelic account id'
-  measured_os: # change this
+  measured_os:
     required: false
     description: 'os to measure on: "windows/linux/mac" '
     default: 'linux'
