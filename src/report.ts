@@ -4,13 +4,13 @@ import * as core from '@actions/core'
 
 export type NewrelicMetrics = Record<string, number>
 //NewrelicMetrics[]
-function convertMetricsListToNRQL(metrics: string[]): string {
+function convertMetricsListToNRQL(metrics: string[], os: string): string {
   const list: string[] = []
   for (const entry of metrics) {
-    list.push(`latest(${entry})`)
+    list.push(`average(${entry})`)
   }
   const subQuery = list.join(',')
-  const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os = 'linux'`
+  const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os = '${os}'`
 
   return query
 }
@@ -27,7 +27,7 @@ function parseNewrelicMetrics(rawData: string): NewrelicMetrics {
   }
   if (results) {
     for (let i = 0; i < results.metadata.contents.length; i++) {
-      const value = results.results[i].latest
+      const value = Math.round(results.results[i].average)
       const name = results.metadata.contents[i].attribute
       metrics[name] = value
     }
@@ -40,9 +40,10 @@ function parseNewrelicMetrics(rawData: string): NewrelicMetrics {
 async function getMetrics(
   newrelicAccountId: string,
   newrelicQueryKey: string,
-  metrics: string[]
+  metrics: string[],
+  os: string
 ): Promise<NewrelicMetrics> {
-  const querySelector = convertMetricsListToNRQL(metrics)
+  const querySelector = convertMetricsListToNRQL(metrics, os)
   const urlWithQuery = `https://insights-api.newrelic.com/v1/accounts/${newrelicAccountId}/query?nrql=${querySelector}`
 
   const encoded = encodeURI(urlWithQuery)
@@ -112,12 +113,13 @@ export function getListOfMetrics(metricsList: NewrelicMetrics): string[] {
 export async function getNewRelicDataForMetrics(
   nrAccountID: string,
   nrQueryKey: string,
-  metrics: NewrelicMetrics
+  metrics: NewrelicMetrics,
+  os: string
 ): Promise<NewrelicMetrics> {
   if (metrics) {
     core.info(`Get NewRelic data for ${Object.keys(metrics).length} metrics`)
     const listOfMetrcis = getListOfMetrics(metrics)
-    return await getMetrics(nrAccountID, nrQueryKey, listOfMetrcis)
+    return await getMetrics(nrAccountID, nrQueryKey, listOfMetrcis, os)
   } else {
     throw Error('Empty metrics list')
   }
@@ -139,12 +141,13 @@ export function calcChangeForMetrics(
 
 export function makeMDReportStringForMetrics(
   localMetrics: NewrelicMetrics,
-  newrelicLatest: NewrelicMetrics
+  newrelicLatest: NewrelicMetrics,
+  os: string
 ): string {
   const comparison = calcChangeForMetrics(localMetrics, newrelicLatest)
   const reportRows = new Array('')
   reportRows.push(
-    '| Test | Duration(ms) | Latest From NewRelic (ms)| Change (ms)'
+    `| Test (${os}) | Duration(ms) | Average From NewRelic (ms)| Change (ms)`
   )
   reportRows.push('|----|---:|---:|---:|')
   for (const k in localMetrics) {
@@ -158,8 +161,10 @@ export function makeMDReportStringForMetrics(
 export async function generateReport(
   localMetricsFileName: string,
   nrAccountID: string,
-  nrQueryKey: string
+  nrQueryKey: string,
+  os: string
 ): Promise<string> {
+  os = standardizeOS(os)
   const localMetrics = await loadLocalMetricsFromFile(localMetricsFileName)
   if (localMetrics) {
     const len = Object.keys(localMetrics).length
@@ -167,12 +172,30 @@ export async function generateReport(
     const newRelicMetrics = await getNewRelicDataForMetrics(
       nrAccountID,
       nrQueryKey,
-      localMetrics
+      localMetrics,
+      os
     )
     if (newRelicMetrics) {
-      const report = makeMDReportStringForMetrics(localMetrics, newRelicMetrics)
+      const report = makeMDReportStringForMetrics(
+        localMetrics,
+        newRelicMetrics,
+        os
+      )
       return report
     }
   }
   return ''
+}
+
+export function standardizeOS(os: string): string {
+  if (os.includes('windows')) {
+    return 'win32'
+  }
+  if (os.includes('linux') || os.includes('ubuntu')) {
+    return 'linux'
+  }
+  if (os.includes('mac')) {
+    return 'darwin'
+  }
+  throw new Error('Could not find specified OS')
 }

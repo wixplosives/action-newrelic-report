@@ -2,7 +2,7 @@ name: 'NewRelic comparison functionality'
 description: 'Provide a description here'
 author: 'core3'
 branding:
-  icon: 'crosshair'  
+  icon: 'crosshair'
   color: 'blue'
 inputs:
   input_file: # change this
@@ -17,7 +17,11 @@ inputs:
   nr_account_id: # change this
     required: true
     description: 'newrelic account id'
-    
+  measured_os:
+    required: false
+    description: 'os to measure on: "windows/linux/mac" '
+    default: 'linux'
+
 runs:
   using: 'node12'
   main: 'dist/index.js'

@@ -103,7 +103,8 @@ function run() {
             const outputFile = core.getInput('output_file');
             const queryKey = core.getInput('nr_query_id');
             const accountId = core.getInput('nr_account_id');
-            const mdReport = yield report_1.generateReport(inputFile, accountId, queryKey);
+            const os = core.getInput('measured_os');
+            const mdReport = yield report_1.generateReport(inputFile, accountId, queryKey, os);
             fs_1.default.writeFileSync(outputFile, mdReport);
             core.setOutput('data', mdReport);
         }
@@ -140,6 +141,8 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const command_1 = __webpack_require__(351);
+const file_command_1 = __webpack_require__(717);
+const utils_1 = __webpack_require__(278);
 const os = __importStar(__webpack_require__(87));
 const path = __importStar(__webpack_require__(622));
 /**
@@ -166,9 +169,17 @@ var ExitCode;
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function exportVariable(name, val) {
-    const convertedVal = command_1.toCommandValue(val);
+    const convertedVal = utils_1.toCommandValue(val);
     process.env[name] = convertedVal;
-    command_1.issueCommand('set-env', { name }, convertedVal);
+    const filePath = process.env['GITHUB_ENV'] || '';
+    if (filePath) {
+        const delimiter = '_GitHubActionsFileCommandDelimeter_';
+        const commandValue = `${name}<<${delimiter}${os.EOL}${convertedVal}${os.EOL}${delimiter}`;
+        file_command_1.issueCommand('ENV', commandValue);
+    }
+    else {
+        command_1.issueCommand('set-env', { name }, convertedVal);
+    }
 }
 exports.exportVariable = exportVariable;
 /**
@@ -184,7 +195,13 @@ exports.setSecret = setSecret;
  * @param inputPath
  */
 function addPath(inputPath) {
-    command_1.issueCommand('add-path', {}, inputPath);
+    const filePath = process.env['GITHUB_PATH'] || '';
+    if (filePath) {
+        file_command_1.issueCommand('PATH', inputPath);
+    }
+    else {
+        command_1.issueCommand('add-path', {}, inputPath);
+    }
     process.env['PATH'] = `${inputPath}${path.delimiter}${process.env['PATH']}`;
 }
 exports.addPath = addPath;
@@ -390,18 +407,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateReport = exports.makeMDReportStringForMetrics = exports.calcChangeForMetrics = exports.getNewRelicDataForMetrics = exports.getListOfMetrics = exports.loadLocalMetricsFromFile = exports.fileExists = void 0;
+exports.standardizeOS = exports.generateReport = exports.makeMDReportStringForMetrics = exports.calcChangeForMetrics = exports.getNewRelicDataForMetrics = exports.getListOfMetrics = exports.loadLocalMetricsFromFile = exports.fileExists = void 0;
 const http_1 = __webpack_require__(270);
 const fs_1 = __importDefault(__webpack_require__(747));
 const core = __importStar(__webpack_require__(186));
 //NewrelicMetrics[]
-function convertMetricsListToNRQL(metrics) {
+function convertMetricsListToNRQL(metrics, os) {
     const list = [];
     for (const entry of metrics) {
-        list.push(`latest(${entry})`);
+        list.push(`average(${entry})`);
     }
     const subQuery = list.join(',');
-    const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os != 'darwin'`;
+    const query = `SELECT ${subQuery} from measurement since 1 weeks ago where commit is not null and appName = 'component-studio' and os = '${os}'`;
     return query;
 }
 function parseNewrelicMetrics(rawData) {
@@ -409,7 +426,7 @@ function parseNewrelicMetrics(rawData) {
     const results = JSON.parse(rawData);
     if (results) {
         for (let i = 0; i < results.metadata.contents.length; i++) {
-            const value = results.results[i].latest;
+            const value = Math.round(results.results[i].average);
             const name = results.metadata.contents[i].attribute;
             metrics[name] = value;
         }
@@ -419,9 +436,9 @@ function parseNewrelicMetrics(rawData) {
     }
     return metrics;
 }
-function getMetrics(newrelicAccountId, newrelicQueryKey, metrics) {
+function getMetrics(newrelicAccountId, newrelicQueryKey, metrics, os) {
     return __awaiter(this, void 0, void 0, function* () {
-        const querySelector = convertMetricsListToNRQL(metrics);
+        const querySelector = convertMetricsListToNRQL(metrics, os);
         const urlWithQuery = `https://insights-api.newrelic.com/v1/accounts/${newrelicAccountId}/query?nrql=${querySelector}`;
         const encoded = encodeURI(urlWithQuery);
         const result = yield http_1.fetchText(encoded, {
@@ -482,12 +499,12 @@ function getListOfMetrics(metricsList) {
     return retval;
 }
 exports.getListOfMetrics = getListOfMetrics;
-function getNewRelicDataForMetrics(nrAccountID, nrQueryKey, metrics) {
+function getNewRelicDataForMetrics(nrAccountID, nrQueryKey, metrics, os) {
     return __awaiter(this, void 0, void 0, function* () {
         if (metrics) {
             core.info(`Get NewRelic data for ${Object.keys(metrics).length} metrics`);
             const listOfMetrcis = getListOfMetrics(metrics);
-            return yield getMetrics(nrAccountID, nrQueryKey, listOfMetrcis);
+            return yield getMetrics(nrAccountID, nrQueryKey, listOfMetrcis, os);
         }
         else {
             throw Error('Empty metrics list');
@@ -506,10 +523,10 @@ function calcChangeForMetrics(metrics, nrValues) {
     return retval;
 }
 exports.calcChangeForMetrics = calcChangeForMetrics;
-function makeMDReportStringForMetrics(localMetrics, newrelicLatest) {
+function makeMDReportStringForMetrics(localMetrics, newrelicLatest, os) {
     const comparison = calcChangeForMetrics(localMetrics, newrelicLatest);
     const reportRows = new Array('');
-    reportRows.push('| Test | Duration(ms) | Latest From NewRelic (ms)| Change (ms)');
+    reportRows.push(`| Test (${os}) | Duration(ms) | Average From NewRelic (ms)| Change (ms)`);
     reportRows.push('|----|---:|---:|---:|');
     for (const k in localMetrics) {
         reportRows.push(`|${k}| ${localMetrics[k]}| ${newrelicLatest[k]}| ${comparison[k]}%`);
@@ -517,15 +534,16 @@ function makeMDReportStringForMetrics(localMetrics, newrelicLatest) {
     return reportRows.join('\n');
 }
 exports.makeMDReportStringForMetrics = makeMDReportStringForMetrics;
-function generateReport(localMetricsFileName, nrAccountID, nrQueryKey) {
+function generateReport(localMetricsFileName, nrAccountID, nrQueryKey, os) {
     return __awaiter(this, void 0, void 0, function* () {
+        os = standardizeOS(os);
         const localMetrics = yield loadLocalMetricsFromFile(localMetricsFileName);
         if (localMetrics) {
             const len = Object.keys(localMetrics).length;
             core.info(`Found ${len} metrics in ${localMetricsFileName}`);
-            const newRelicMetrics = yield getNewRelicDataForMetrics(nrAccountID, nrQueryKey, localMetrics);
+            const newRelicMetrics = yield getNewRelicDataForMetrics(nrAccountID, nrQueryKey, localMetrics, os);
             if (newRelicMetrics) {
-                const report = makeMDReportStringForMetrics(localMetrics, newRelicMetrics);
+                const report = makeMDReportStringForMetrics(localMetrics, newRelicMetrics, os);
                 return report;
             }
         }
@@ -533,6 +551,19 @@ function generateReport(localMetricsFileName, nrAccountID, nrQueryKey) {
     });
 }
 exports.generateReport = generateReport;
+function standardizeOS(os) {
+    if (os.includes('windows')) {
+        return 'win32';
+    }
+    if (os.includes('linux') || os.includes('ubuntu')) {
+        return 'linux';
+    }
+    if (os.includes('mac')) {
+        return 'darwin';
+    }
+    throw new Error('Could not find specified OS');
+}
+exports.standardizeOS = standardizeOS;
 
 
 /***/ }),
@@ -624,6 +655,32 @@ exports.FetchError = FetchError;
 
 /***/ }),
 
+/***/ 278:
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+// We use any as a valid input type
+/* eslint-disable @typescript-eslint/no-explicit-any */
+Object.defineProperty(exports, "__esModule", { value: true });
+/**
+ * Sanitizes an input into a string so it can be passed into issueCommand safely
+ * @param input input to sanitize into a string
+ */
+function toCommandValue(input) {
+    if (input === null || input === undefined) {
+        return '';
+    }
+    else if (typeof input === 'string' || input instanceof String) {
+        return input;
+    }
+    return JSON.stringify(input);
+}
+exports.toCommandValue = toCommandValue;
+//# sourceMappingURL=utils.js.map
+
+/***/ }),
+
 /***/ 351:
 /***/ (function(__unusedmodule, exports, __webpack_require__) {
 
@@ -638,6 +695,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const os = __importStar(__webpack_require__(87));
+const utils_1 = __webpack_require__(278);
 /**
  * Commands
  *
@@ -691,28 +749,14 @@ class Command {
         return cmdStr;
     }
 }
-/**
- * Sanitizes an input into a string so it can be passed into issueCommand safely
- * @param input input to sanitize into a string
- */
-function toCommandValue(input) {
-    if (input === null || input === undefined) {
-        return '';
-    }
-    else if (typeof input === 'string' || input instanceof String) {
-        return input;
-    }
-    return JSON.stringify(input);
-}
-exports.toCommandValue = toCommandValue;
 function escapeData(s) {
-    return toCommandValue(s)
+    return utils_1.toCommandValue(s)
         .replace(/%/g, '%25')
         .replace(/\r/g, '%0D')
         .replace(/\n/g, '%0A');
 }
 function escapeProperty(s) {
-    return toCommandValue(s)
+    return utils_1.toCommandValue(s)
         .replace(/%/g, '%25')
         .replace(/\r/g, '%0D')
         .replace(/\n/g, '%0A')
@@ -741,6 +785,42 @@ module.exports = require("events");
 /***/ (function(module) {
 
 module.exports = require("path");
+
+/***/ }),
+
+/***/ 717:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+// For internal use, subject to change.
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
+    result["default"] = mod;
+    return result;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+// We use any as a valid input type
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const fs = __importStar(__webpack_require__(747));
+const os = __importStar(__webpack_require__(87));
+const utils_1 = __webpack_require__(278);
+function issueCommand(command, message) {
+    const filePath = process.env[`GITHUB_${command}`];
+    if (!filePath) {
+        throw new Error(`Unable to find environment variable for file command ${command}`);
+    }
+    if (!fs.existsSync(filePath)) {
+        throw new Error(`Missing file at path: ${filePath}`);
+    }
+    fs.appendFileSync(filePath, `${utils_1.toCommandValue(message)}${os.EOL}`, {
+        encoding: 'utf8'
+    });
+}
+exports.issueCommand = issueCommand;
+//# sourceMappingURL=file-command.js.map
 
 /***/ }),
 
