@@ -27,7 +27,7 @@
   "dependencies": {
     "@actions/core": "^1.2.6",
     "@types/newrelic": "^6.13.0",
-    "newrelic": "^6.13.0",
+    "newrelic": "^7.1.2",
     "ts-type": "^1.2.34",
     "node-notifier": ">=8.0.1"
   },
