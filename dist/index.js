@@ -190,7 +190,6 @@ exports.standardizeOS = exports.generateReport = exports.makeMDReportStringForMe
 const http_1 = __nccwpck_require__(270);
 const fs_1 = __importDefault(__nccwpck_require__(747));
 const core = __importStar(__nccwpck_require__(186));
-//NewrelicMetrics[]
 function convertMetricsListToNRQL(metrics, os) {
     const list = [];
     for (const entry of metrics) {
@@ -252,10 +251,17 @@ function loadLocalMetricsFromFile(filePath) {
         if (fileContent) {
             const rawMetrics = JSON.parse(fileContent);
             if (rawMetrics) {
-                metrics['bundle_time_duration'] = rawMetrics.bundleTime;
+                metrics['bundle_time_duration'] = {
+                    avg: rawMetrics.bundleTime,
+                    normalizedAvg: rawMetrics.bundleTime
+                };
                 for (const k in rawMetrics.avg) {
                     const newRelicKeyName = k.replace(/ /g, '_');
-                    metrics[newRelicKeyName] = rawMetrics.avg[k];
+                    metrics[newRelicKeyName] = {
+                        avg: rawMetrics.avg[k],
+                        normalizedAvg: rawMetrics.normalizedAvg[k]['duration'],
+                        observations: rawMetrics.normalizedAvg[k]['observations']
+                    };
                 }
             }
             else {
@@ -282,8 +288,8 @@ function getNewRelicDataForMetrics(nrAccountID, nrQueryKey, metrics, os) {
     return __awaiter(this, void 0, void 0, function* () {
         if (metrics) {
             core.info(`Get NewRelic data for ${Object.keys(metrics).length} metrics`);
-            const listOfMetrcis = getListOfMetrics(metrics);
-            return yield getMetrics(nrAccountID, nrQueryKey, listOfMetrcis, os);
+            const listOfMetrics = getListOfMetrics(metrics);
+            return yield getMetrics(nrAccountID, nrQueryKey, listOfMetrics, os);
         }
         else {
             throw Error('Empty metrics list');
@@ -292,23 +298,25 @@ function getNewRelicDataForMetrics(nrAccountID, nrQueryKey, metrics, os) {
 }
 exports.getNewRelicDataForMetrics = getNewRelicDataForMetrics;
 function calcChangeForMetrics(metrics, nrValues) {
-    const retval = {};
+    const changes = {};
     for (const k in metrics) {
-        const localMetricVal = metrics[k];
-        const nrValue = nrValues[k];
-        const change = Math.round((localMetricVal / nrValue - 1) * 100);
-        retval[k] = change;
+        changes[k] = {
+            avg: Math.round((metrics[k]['avg'] / nrValues[k] - 1) * 100),
+            normalizedAvg: Math.round((metrics[k]['normalizedAvg'] / nrValues[k] - 1) * 100)
+        };
     }
-    return retval;
+    return changes;
 }
 exports.calcChangeForMetrics = calcChangeForMetrics;
 function makeMDReportStringForMetrics(localMetrics, newrelicLatest, os) {
-    const comparison = calcChangeForMetrics(localMetrics, newrelicLatest);
+    const changes = calcChangeForMetrics(localMetrics, newrelicLatest);
     const reportRows = new Array('');
-    reportRows.push(`| Test (${os}) | Duration(ms) | Average From NewRelic (ms)| Change (ms)`);
-    reportRows.push('|----|---:|---:|---:|');
+    reportRows.push(`| Test (${os}) | Avg (ms) | Normalized Avg (ms) / Obs (n)| Average From NewRelic (ms)| Change % (Avg)|Change % (Normalized Avg)|`);
+    reportRows.push('|----|---:|---:|---:|---:|---:|---:|');
     for (const k in localMetrics) {
-        reportRows.push(`|${k}| ${localMetrics[k]}| ${newrelicLatest[k]}| ${comparison[k]}%`);
+        const roundedNormalizedAvg = Math.round(localMetrics[k]['normalizedAvg']);
+        const roundedAvg = Math.round(localMetrics[k]['avg']);
+        reportRows.push(`|${k}|${roundedAvg}|${roundedNormalizedAvg} / ${localMetrics[k]['normalizedObs']} |${newrelicLatest[k]}|${changes[k]['avg']}%|${changes[k]['normalizedAvg']}%|`);
     }
     return reportRows.join('\n');
 }
