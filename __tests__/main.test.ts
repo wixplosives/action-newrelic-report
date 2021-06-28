@@ -13,5 +13,5 @@ test('url parser', async () => {
   expect(metrics['bundle_time_duration']['normalizedAvg']).toBe(27388)
   expect(metrics['launching_node_environment']['avg']).toBe(1039)
   expect(metrics['launching_node_environment']['normalizedAvg']).toBe(534)
-  expect(metrics['launching_node_environment']['observations']).toBe(2)
+  expect(metrics['launching_node_environment']['normalizedObs']).toBe(2)
 })

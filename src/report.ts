@@ -97,7 +97,7 @@ export async function loadLocalMetricsFromFile(
         metrics[newRelicKeyName] = {
           avg: rawMetrics.avg[k],
           normalizedAvg: rawMetrics.normalizedAvg[k]['duration'],
-          observations: rawMetrics.normalizedAvg[k]['observations']
+          normalizedObs: rawMetrics.normalizedAvg[k]['observations']
         }
       }
     } else {
@@ -160,7 +160,7 @@ export function makeMDReportStringForMetrics(
   reportRows.push(
     `| Test (${os}) | Avg (ms) | Normalized Avg (ms) / Obs (n)| Average From NewRelic (ms)| Change % (Avg)|Change % (Normalized Avg)|`
   )
-  reportRows.push('|----|---:|---:|---:|---:|---:|---:|')
+  reportRows.push('|----|---:|---:|---:|---:|---:|')
   for (const k in localMetrics) {
     const roundedNormalizedAvg = Math.round(localMetrics[k]['normalizedAvg'])
     const roundedAvg = Math.round(localMetrics[k]['avg'])
