@@ -253,7 +253,8 @@ function loadLocalMetricsFromFile(filePath) {
             if (rawMetrics) {
                 metrics['bundle_time_duration'] = {
                     avg: rawMetrics.bundleTime,
-                    normalizedAvg: rawMetrics.bundleTime
+                    normalizedAvg: rawMetrics.bundleTime,
+                    normalizedObs: 1
                 };
                 for (const k in rawMetrics.avg) {
                     const newRelicKeyName = k.replace(/ /g, '_');
