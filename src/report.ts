@@ -2,8 +2,9 @@ import {fetchText} from './http'
 import fs from 'fs'
 import * as core from '@actions/core'
 
-export type NewrelicMetrics = Record<string, number>
-//NewrelicMetrics[]
+export type NewRelicMetrics = Record<string, number>
+export type LocalMetrics = {[key: string]: {[key: string]: number}}
+
 function convertMetricsListToNRQL(metrics: string[], os: string): string {
   const list: string[] = []
   for (const entry of metrics) {
@@ -19,7 +20,7 @@ export interface NewRelicResultEntry {
   latest: number | undefined
 }
 
-function parseNewrelicMetrics(rawData: string): NewrelicMetrics {
+function parseNewrelicMetrics(rawData: string): NewRelicMetrics {
   const metrics: Record<string, number> = {}
   const results = JSON.parse(rawData) as {
     results: Record<string, number>[]
@@ -42,7 +43,7 @@ async function getMetrics(
   newrelicQueryKey: string,
   metrics: string[],
   os: string
-): Promise<NewrelicMetrics> {
+): Promise<NewRelicMetrics> {
   const querySelector = convertMetricsListToNRQL(metrics, os)
   const urlWithQuery = `https://insights-api.newrelic.com/v1/accounts/${newrelicAccountId}/query?nrql=${querySelector}`
 
@@ -73,23 +74,31 @@ export interface WcsMeasureResults {
   max: Record<string, number>
   min: Record<string, number>
   avg: Record<string, number>
+  normalizedAvg: {[key: string]: {[key: string]: number}}
 }
 
 export async function loadLocalMetricsFromFile(
   filePath: string
-): Promise<NewrelicMetrics | undefined> {
+): Promise<LocalMetrics | undefined> {
   core.info(`Loading ${filePath}`)
   const fileContent = (await fileExists(filePath))
     ? await fs.promises.readFile(filePath, 'utf8')
     : undefined
-  const metrics: Record<string, number> = {}
+  const metrics: {[key: string]: {[key: string]: number}} = {}
   if (fileContent) {
     const rawMetrics = JSON.parse(fileContent) as WcsMeasureResults
     if (rawMetrics) {
-      metrics['bundle_time_duration'] = rawMetrics.bundleTime
+      metrics['bundle_time_duration'] = {
+        avg: rawMetrics.bundleTime,
+        normalizedAvg: rawMetrics.bundleTime
+      }
       for (const k in rawMetrics.avg) {
         const newRelicKeyName = k.replace(/ /g, '_')
-        metrics[newRelicKeyName] = rawMetrics.avg[k]
+        metrics[newRelicKeyName] = {
+          avg: rawMetrics.avg[k],
+          normalizedAvg: rawMetrics.normalizedAvg[k]['duration'],
+          observations: rawMetrics.normalizedAvg[k]['observations']
+        }
       }
     } else {
       throw new Error(`Cannot parse WcsMeasureResults for \n ${fileContent}`)
@@ -101,7 +110,7 @@ export async function loadLocalMetricsFromFile(
   return metrics
 }
 
-export function getListOfMetrics(metricsList: NewrelicMetrics): string[] {
+export function getListOfMetrics(metricsList: LocalMetrics): string[] {
   const retval: string[] = []
   for (const k in metricsList) {
     const metrics_name = k.replace(/ /g, '_')
@@ -113,46 +122,50 @@ export function getListOfMetrics(metricsList: NewrelicMetrics): string[] {
 export async function getNewRelicDataForMetrics(
   nrAccountID: string,
   nrQueryKey: string,
-  metrics: NewrelicMetrics,
+  metrics: LocalMetrics,
   os: string
-): Promise<NewrelicMetrics> {
+): Promise<Record<string, number>> {
   if (metrics) {
     core.info(`Get NewRelic data for ${Object.keys(metrics).length} metrics`)
-    const listOfMetrcis = getListOfMetrics(metrics)
-    return await getMetrics(nrAccountID, nrQueryKey, listOfMetrcis, os)
+    const listOfMetrics = getListOfMetrics(metrics)
+    return await getMetrics(nrAccountID, nrQueryKey, listOfMetrics, os)
   } else {
     throw Error('Empty metrics list')
   }
 }
 
 export function calcChangeForMetrics(
-  metrics: NewrelicMetrics,
-  nrValues: NewrelicMetrics
-): Record<string, number> {
-  const retval: Record<string, number> = {}
+  metrics: LocalMetrics,
+  nrValues: NewRelicMetrics
+): Record<string, Record<string, number>> {
+  const changes: Record<string, Record<string, number>> = {}
   for (const k in metrics) {
-    const localMetricVal = metrics[k]
-    const nrValue = nrValues[k]
-    const change = Math.round((localMetricVal / nrValue - 1) * 100)
-    retval[k] = change
+    changes[k] = {
+      avg: Math.round((metrics[k]['avg'] / nrValues[k] - 1) * 100),
+      normalizedAvg: Math.round(
+        (metrics[k]['normalizedAvg'] / nrValues[k] - 1) * 100
+      )
+    }
   }
-  return retval
+  return changes
 }
 
 export function makeMDReportStringForMetrics(
-  localMetrics: NewrelicMetrics,
-  newrelicLatest: NewrelicMetrics,
+  localMetrics: LocalMetrics,
+  newrelicLatest: NewRelicMetrics,
   os: string
 ): string {
-  const comparison = calcChangeForMetrics(localMetrics, newrelicLatest)
+  const changes = calcChangeForMetrics(localMetrics, newrelicLatest)
   const reportRows = new Array('')
   reportRows.push(
-    `| Test (${os}) | Duration(ms) | Average From NewRelic (ms)| Change (ms)`
+    `| Test (${os}) | Avg (ms) | Normalized Avg (ms) / Obs (n)| Average From NewRelic (ms)| Change % (Avg)|Change % (Normalized Avg)|`
   )
-  reportRows.push('|----|---:|---:|---:|')
+  reportRows.push('|----|---:|---:|---:|---:|---:|---:|')
   for (const k in localMetrics) {
+    const roundedNormalizedAvg = Math.round(localMetrics[k]['normalizedAvg'])
+    const roundedAvg = Math.round(localMetrics[k]['avg'])
     reportRows.push(
-      `|${k}| ${localMetrics[k]}| ${newrelicLatest[k]}| ${comparison[k]}%`
+      `|${k}|${roundedAvg}|${roundedNormalizedAvg} / ${localMetrics[k]['normalizedObs']} |${newrelicLatest[k]}|${changes[k]['avg']}%|${changes[k]['normalizedAvg']}%|`
     )
   }
   return reportRows.join('\n')
