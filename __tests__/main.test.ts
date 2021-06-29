@@ -9,9 +9,9 @@ test('url parser', async () => {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   Object.assign(metrics, await loadLocalMetricsFromFile(metricsPath))
 
-  expect(metrics['bundle_time_duration']['avg']).toBe(27388)
+  expect(metrics['bundle_time_duration']['regularAvg']).toBe(27388)
   expect(metrics['bundle_time_duration']['normalizedAvg']).toBe(27388)
-  expect(metrics['launching_node_environment']['avg']).toBe(1039)
+  expect(metrics['launching_node_environment']['regularAvg']).toBe(1039)
   expect(metrics['launching_node_environment']['normalizedAvg']).toBe(534)
   expect(metrics['launching_node_environment']['normalizedObs']).toBe(2)
 })

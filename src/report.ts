@@ -73,8 +73,8 @@ export interface WcsMeasureResults {
   sum: Record<string, number>
   max: Record<string, number>
   min: Record<string, number>
-  avg: Record<string, number>
-  normalizedAvg: {[key: string]: {[key: string]: number}}
+  regularAvg: Record<string, number>
+  avg: {[key: string]: {[key: string]: number}}
 }
 
 export async function loadLocalMetricsFromFile(
@@ -89,16 +89,16 @@ export async function loadLocalMetricsFromFile(
     const rawMetrics = JSON.parse(fileContent) as WcsMeasureResults
     if (rawMetrics) {
       metrics['bundle_time_duration'] = {
-        avg: rawMetrics.bundleTime,
+        regularAvg: rawMetrics.bundleTime,
         normalizedAvg: rawMetrics.bundleTime,
         normalizedObs: 1
       }
-      for (const k in rawMetrics.avg) {
+      for (const k in rawMetrics.regularAvg) {
         const newRelicKeyName = k.replace(/ /g, '_')
         metrics[newRelicKeyName] = {
-          avg: rawMetrics.avg[k],
-          normalizedAvg: rawMetrics.normalizedAvg[k]['duration'],
-          normalizedObs: rawMetrics.normalizedAvg[k]['observations']
+          regularAvg: rawMetrics.regularAvg[k],
+          normalizedAvg: rawMetrics.avg[k]['duration'],
+          normalizedObs: rawMetrics.avg[k]['observations']
         }
       }
     } else {
@@ -142,7 +142,9 @@ export function calcChangeForMetrics(
   const changes: Record<string, Record<string, number>> = {}
   for (const k in metrics) {
     changes[k] = {
-      avg: Math.round((metrics[k]['avg'] / nrValues[k] - 1) * 100),
+      regularAvg: Math.round(
+        (metrics[k]['regularAvg'] / nrValues[k] - 1) * 100
+      ),
       normalizedAvg: Math.round(
         (metrics[k]['normalizedAvg'] / nrValues[k] - 1) * 100
       )
@@ -159,14 +161,14 @@ export function makeMDReportStringForMetrics(
   const changes = calcChangeForMetrics(localMetrics, newrelicLatest)
   const reportRows = new Array('')
   reportRows.push(
-    `| Test (${os}) | Avg (ms) | Normalized Avg (ms) / Obs (n)| Average From NewRelic (ms)| Change % (Avg)|Change % (Normalized Avg)|`
+    `| Test (${os}) | Regular Avg (ms) | Normalized Avg (ms) / Obs (n)| Average From NewRelic (ms)| Change % (Avg)|Change % (Normalized Avg)|`
   )
   reportRows.push('|----|---:|---:|---:|---:|---:|')
   for (const k in localMetrics) {
     const roundedNormalizedAvg = Math.round(localMetrics[k]['normalizedAvg'])
-    const roundedAvg = Math.round(localMetrics[k]['avg'])
+    const roundedAvg = Math.round(localMetrics[k]['regularAvg'])
     reportRows.push(
-      `|${k}|${roundedAvg}|${roundedNormalizedAvg} / ${localMetrics[k]['normalizedObs']} |${newrelicLatest[k]}|${changes[k]['avg']}%|${changes[k]['normalizedAvg']}%|`
+      `|${k}|${roundedAvg}|${roundedNormalizedAvg} / ${localMetrics[k]['normalizedObs']} |${newrelicLatest[k]}|${changes[k]['regularAvg']}%|${changes[k]['normalizedAvg']}%|`
     )
   }
   return reportRows.join('\n')

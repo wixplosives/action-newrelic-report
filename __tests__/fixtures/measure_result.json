@@ -57,7 +57,7 @@
     "new component from fs is visible in tree": 643,
     "creating first simulation of new component": 2075
   },
-  "avg": {
+  "regularAvg": {
     "launching node environment": 1039,
     "loading page assets": 4686.666666666667,
     "simulated components are visible": 42.666666666666664,
@@ -76,7 +76,7 @@
     "new component from fs is visible in tree": 652,
     "creating first simulation of new component": 2117
   },
-  "normalizedAvg": {
+  "avg": {
     "launching node environment": {"duration": 534, "observations": 2},
     "loading page assets": {"duration": 4686.666666666667, "observations": 3},
     "simulated components are visible": {
