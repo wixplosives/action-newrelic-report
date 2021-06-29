@@ -312,7 +312,8 @@ exports.calcChangeForMetrics = calcChangeForMetrics;
 function makeMDReportStringForMetrics(localMetrics, newrelicLatest, os) {
     const changes = calcChangeForMetrics(localMetrics, newrelicLatest);
     const reportRows = new Array('');
-    reportRows.push(`| Test (${os}) | Regular Avg (ms) | Normalized Avg (ms) / Obs (n)| Average From NewRelic (ms)| Change % (Avg)|Change % (Normalized Avg)|`);
+    reportRows.push(`Normalized Avg: If the highest result of a measurement is higher than the second highest * 2, the highest result is removed. `);
+    reportRows.push(`| Test (${os}) | Regular Avg (ms) | Normalized Avg (ms) / Obs (n)| Average From NewRelic (ms)| Change % (Regular Avg)|Change % (Normalized Avg)|`);
     reportRows.push('|----|---:|---:|---:|---:|---:|');
     for (const k in localMetrics) {
         const roundedNormalizedAvg = Math.round(localMetrics[k]['normalizedAvg']);
