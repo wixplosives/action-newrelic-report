@@ -260,8 +260,8 @@ function loadLocalMetricsFromFile(filePath) {
                     const newRelicKeyName = k.replace(/ /g, '_');
                     metrics[newRelicKeyName] = {
                         regularAvg: rawMetrics.regularAvg[k],
-                        normalizedAvg: rawMetrics.avg[k]['duration'],
-                        normalizedObs: rawMetrics.avg[k]['observations']
+                        normalizedAvg: rawMetrics.normalizedAvg[k],
+                        normalizedObs: rawMetrics.normalizedObs[k]
                     };
                 }
             }

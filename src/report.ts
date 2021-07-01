@@ -74,7 +74,8 @@ export interface WcsMeasureResults {
   max: Record<string, number>
   min: Record<string, number>
   regularAvg: Record<string, number>
-  avg: {[key: string]: {[key: string]: number}}
+  normalizedAvg: Record<string, number>
+  normalizedObs: Record<string, number>
 }
 
 export async function loadLocalMetricsFromFile(
@@ -97,8 +98,8 @@ export async function loadLocalMetricsFromFile(
         const newRelicKeyName = k.replace(/ /g, '_')
         metrics[newRelicKeyName] = {
           regularAvg: rawMetrics.regularAvg[k],
-          normalizedAvg: rawMetrics.avg[k]['duration'],
-          normalizedObs: rawMetrics.avg[k]['observations']
+          normalizedAvg: rawMetrics.normalizedAvg[k],
+          normalizedObs: rawMetrics.normalizedObs[k]
         }
       }
     } else {
