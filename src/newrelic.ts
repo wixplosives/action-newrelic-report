@@ -1,7 +1,5 @@
 import {recordCustomEvent} from 'newrelic'
 
-type UnwrapPromise<T> = T extends Promise<infer U> ? U : T
-
 interface INewrelicReportOptions {
   packageName: string
   packageVersion: string
