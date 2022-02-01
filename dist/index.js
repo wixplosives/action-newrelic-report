@@ -190,7 +190,6 @@ exports.standardizeOS = exports.generateReport = exports.makeMDReportStringForMe
 const http_1 = __nccwpck_require__(270);
 const fs_1 = __importDefault(__nccwpck_require__(747));
 const core = __importStar(__nccwpck_require__(186));
-//NewrelicMetrics[]
 function convertMetricsListToNRQL(metrics, os) {
     const list = [];
     for (const entry of metrics) {
@@ -252,10 +251,18 @@ function loadLocalMetricsFromFile(filePath) {
         if (fileContent) {
             const rawMetrics = JSON.parse(fileContent);
             if (rawMetrics) {
-                metrics['bundle_time_duration'] = rawMetrics.bundleTime;
-                for (const k in rawMetrics.avg) {
+                metrics['bundle_time_duration'] = {
+                    regularAvg: rawMetrics.bundleTime,
+                    normalizedAvg: rawMetrics.bundleTime,
+                    normalizedObs: 1
+                };
+                for (const k in rawMetrics.regularAvg) {
                     const newRelicKeyName = k.replace(/ /g, '_');
-                    metrics[newRelicKeyName] = rawMetrics.avg[k];
+                    metrics[newRelicKeyName] = {
+                        regularAvg: rawMetrics.regularAvg[k],
+                        normalizedAvg: rawMetrics.normalizedAvg[k],
+                        normalizedObs: rawMetrics.normalizedObs[k]
+                    };
                 }
             }
             else {
@@ -282,8 +289,8 @@ function getNewRelicDataForMetrics(nrAccountID, nrQueryKey, metrics, os) {
     return __awaiter(this, void 0, void 0, function* () {
         if (metrics) {
             core.info(`Get NewRelic data for ${Object.keys(metrics).length} metrics`);
-            const listOfMetrcis = getListOfMetrics(metrics);
-            return yield getMetrics(nrAccountID, nrQueryKey, listOfMetrcis, os);
+            const listOfMetrics = getListOfMetrics(metrics);
+            return yield getMetrics(nrAccountID, nrQueryKey, listOfMetrics, os);
         }
         else {
             throw Error('Empty metrics list');
@@ -292,23 +299,26 @@ function getNewRelicDataForMetrics(nrAccountID, nrQueryKey, metrics, os) {
 }
 exports.getNewRelicDataForMetrics = getNewRelicDataForMetrics;
 function calcChangeForMetrics(metrics, nrValues) {
-    const retval = {};
+    const changes = {};
     for (const k in metrics) {
-        const localMetricVal = metrics[k];
-        const nrValue = nrValues[k];
-        const change = Math.round((localMetricVal / nrValue - 1) * 100);
-        retval[k] = change;
+        changes[k] = {
+            regularAvg: Math.round((metrics[k]['regularAvg'] / nrValues[k] - 1) * 100),
+            normalizedAvg: Math.round((metrics[k]['normalizedAvg'] / nrValues[k] - 1) * 100)
+        };
     }
-    return retval;
+    return changes;
 }
 exports.calcChangeForMetrics = calcChangeForMetrics;
 function makeMDReportStringForMetrics(localMetrics, newrelicLatest, os) {
-    const comparison = calcChangeForMetrics(localMetrics, newrelicLatest);
+    const changes = calcChangeForMetrics(localMetrics, newrelicLatest);
     const reportRows = new Array('');
-    reportRows.push(`| Test (${os}) | Duration(ms) | Average From NewRelic (ms)| Change (ms)`);
-    reportRows.push('|----|---:|---:|---:|');
+    reportRows.push(`Normalized Avg: If the highest result of a measurement is higher than the second highest * 2, the highest result is removed. `);
+    reportRows.push(`| Test (${os}) | Regular Avg (ms) | Normalized Avg (ms) / Obs (n)| Average From NewRelic (ms)| Change % (Regular Avg)|Change % (Normalized Avg)|`);
+    reportRows.push('|----|---:|---:|---:|---:|---:|');
     for (const k in localMetrics) {
-        reportRows.push(`|${k}| ${localMetrics[k]}| ${newrelicLatest[k]}| ${comparison[k]}%`);
+        const roundedNormalizedAvg = Math.round(localMetrics[k]['normalizedAvg']);
+        const roundedAvg = Math.round(localMetrics[k]['regularAvg']);
+        reportRows.push(`|${k}|${roundedAvg}|${roundedNormalizedAvg} / ${localMetrics[k]['normalizedObs']} |${newrelicLatest[k]}|${changes[k]['regularAvg']}%|${changes[k]['normalizedAvg']}%|`);
     }
     return reportRows.join('\n');
 }
