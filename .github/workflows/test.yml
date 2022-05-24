@@ -14,11 +14,11 @@ jobs:
         os: [ubuntu-latest, windows-latest, macOs-latest]
         node-version: [14, 16]
     steps:
+      - uses: actions/checkout@v2
       - uses: actions/setup-node@v2
         with:
           node-version: ${{ matrix.node-version }}
           registry-url: 'https://registry.npmjs.org/'
-      - uses: actions/checkout@v2
       - run: |
           npm ci
       - run: |
@@ -30,11 +30,11 @@ jobs:
         os: [ubuntu-latest, windows-latest, macOs-latest]
         node-version: [14, 16]
     steps:
+      - uses: actions/checkout@v2
       - uses: actions/setup-node@v2
         with:
           node-version: ${{ matrix.node-version }}
           registry-url: 'https://registry.npmjs.org/'
-      - uses: actions/checkout@v2
       - uses: ./
         with:
           input_file: __tests__/fixtures/measure_result.json
