@@ -20,7 +20,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org/'
       - uses: actions/checkout@v2
       - run: |
-          npm install
+          npm ci
       - run: |
           npm run all
   test: # make sure the action works on a clean machine without building
